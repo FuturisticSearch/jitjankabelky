@@ -60,6 +60,7 @@
             display: flex;
             flex-wrap: wrap;
             gap: 20px;
+            justify-content: space-around;
         }
 
         .bag-item {
@@ -69,19 +70,33 @@
             width: 200px;
             text-align: center;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .bag-item:hover {
+            transform: translateY(-10px);
         }
 
         .bag-item h3 {
             margin-top: 0;
+            font-size: 1.2em;
         }
 
         .bag-item p {
             margin: 5px 0;
+            font-size: 1em;
         }
 
         .bag-item .price {
             font-weight: bold;
             color: #4CAF50;
+        }
+
+        #no-bags-message {
+            text-align: center;
+            font-size: 1.2em;
+            color: #888;
+            margin-top: 20px;
         }
     </style>
 </head>
@@ -112,10 +127,63 @@
         <div id="bags-container">
             <!-- Seznam kabelek se zde bude zobrazovat -->
         </div>
+        <div id="no-bags-message">Žádné kabelky nejsou k dispozici.</div>
     </section>
 
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js"></script>
+
     <script>
-        // Přidání nové kabelky do seznamu
+        // Firebase konfigurace
+        const firebaseConfig = {
+            apiKey: "AIzaSyDANjNbxgLmLuOrGZByWjiLLSrAYoGXkxE",
+            authDomain: "kabelky-database.firebaseapp.com",
+            projectId: "kabelky-database",
+            storageBucket:"kabelky-database.firebasestorage.app",
+            messagingSenderId: "1019032581503",
+            appId: "1:1019032581503:web:13f309dc7390665633d64a",
+            measurementId: "G-WNFBYCQV37"
+        };
+
+        // Inicializace Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Funkce pro zobrazení kabelek z Firestore
+        function displayBags() {
+            const bagsContainer = document.getElementById("bags-container");
+            const noBagsMessage = document.getElementById("no-bags-message");
+            bagsContainer.innerHTML = ''; // Vymažeme předchozí obsah
+
+            // Načtení všech kabelek z Firestore
+            db.collection("bags").get()
+                .then((querySnapshot) => {
+                    // Pokud nejsou žádné kabelky, zobrazí se zpráva
+                    if (querySnapshot.empty) {
+                        noBagsMessage.style.display = 'block';
+                    } else {
+                        noBagsMessage.style.display = 'none';
+                        // Vytvoření a zobrazení kabelek
+                        querySnapshot.forEach(doc => {
+                            const bag = doc.data();
+                            const bagItem = document.createElement("div");
+                            bagItem.classList.add("bag-item");
+                            bagItem.innerHTML = `
+                                <h3>${bag.name}</h3>
+                                <p>${bag.description}</p>
+                                <p class="price">${bag.price} Kč</p>
+                            `;
+                            bagsContainer.appendChild(bagItem);
+                        });
+                    }
+                })
+                .catch((error) => {
+                    console.error("Error getting documents: ", error);
+                });
+        }
+
+        // Přidání nové kabelky do Firestore
         document.getElementById("add-bag-form").addEventListener("submit", function(event) {
             event.preventDefault();
 
@@ -124,22 +192,28 @@
             const price = document.getElementById("bag-price").value;
             const description = document.getElementById("bag-description").value;
 
-            // Vytvoření nového divu pro kabelku
-            const bagItem = document.createElement("div");
-            bagItem.classList.add("bag-item");
+            // Vytvoření objektu pro novou kabelku
+            const newBag = {
+                name: name,
+                price: price,
+                description: description
+            };
 
-            bagItem.innerHTML = `
-                <h3>${name}</h3>
-                <p>${description}</p>
-                <p class="price">${price} Kč</p>
-            `;
-
-            // Přidání kabelky do seznamu
-            document.getElementById("bags-container").appendChild(bagItem);
-
-            // Vymazání formuláře
-            document.getElementById("add-bag-form").reset();
+            // Přidání nové kabelky do Firestore
+            db.collection("bags").add(newBag)
+                .then(() => {
+                    // Vymazání formuláře
+                    document.getElementById("add-bag-form").reset();
+                    // Aktualizace zobrazení kabelek
+                    displayBags();
+                })
+                .catch((error) => {
+                    console.error("Error adding document: ", error);
+                });
         });
+
+        // Načtení a zobrazení kabelek při načtení stránky
+        window.onload = displayBags;
     </script>
 
 </body>
